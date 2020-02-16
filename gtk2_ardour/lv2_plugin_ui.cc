@@ -19,6 +19,10 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
+#ifdef WAF_BUILD
+#include "gtk2ardour-config.h"
+#endif
+
 #include <gtkmm/stock.h>
 
 #include "ardour/lv2_plugin.h"
@@ -135,19 +139,21 @@ LV2PluginUI::set_path_property (int response,
 	active_parameter_requests.erase (desc.key);
 }
 
-uint32_t
+#ifdef HAVE_LV2_1_17_1
+LV2UI_Request_Parameter_Status
 LV2PluginUI::request_parameter (void* handle, LV2_URID key)
 {
 	LV2PluginUI* me = (LV2PluginUI*)handle;
 
-	/* This will return `PropertyDescriptors nothing` when not found */
 	const ParameterDescriptor& desc (me->_lv2->get_property_descriptor(key));
-	if (desc.datatype != Variant::PATH) {
-		return 0;
+	if (desc.key == (uint32_t)-1) {
+		return LV2UI_REQUEST_PARAMETER_ERR_UNKNOWN;
+	} else if (desc.datatype != Variant::PATH) {
+		return LV2UI_REQUEST_PARAMETER_ERR_UNSUPPORTED;
 	}
 
 	if (me->active_parameter_requests.find (key) != me->active_parameter_requests.end()) {
-		return 0; /* already showing dialog */
+		return LV2UI_REQUEST_PARAMETER_BUSY;
 	}
 	me->active_parameter_requests.insert (key);
 
@@ -173,8 +179,9 @@ LV2PluginUI::request_parameter (void* handle, LV2_URID key)
 
 	lv2ui_file_dialog->signal_response().connect (sigc::bind (sigc::mem_fun (*me, &LV2PluginUI::set_path_property), desc, lv2ui_file_dialog));
 	lv2ui_file_dialog->present();
-	return 0;
+	return LV2UI_REQUEST_PARAMETER_SUCCESS;
 }
+#endif
 
 void
 LV2PluginUI::update_timeout()
@@ -340,11 +347,11 @@ LV2PluginUI::lv2ui_instantiate(const std::string& title)
 		features[fi] = features_src[fi];
 	}
 
-#if 0
-	_lv2ui_request_paramater.handle = this;
-	_lv2ui_request_paramater.request = LV2PluginUI::request_parameter;
+#ifdef HAVE_LV2_1_17_1
+	_lv2ui_request_parameter.handle = this;
+	_lv2ui_request_parameter.request = LV2PluginUI::request_parameter;
 	_lv2ui_request_feature.URI  = LV2_UI_PREFIX "requestParameter";
-	_lv2ui_request_feature.data = &_lv2ui_request_paramater;
+	_lv2ui_request_feature.data = &_lv2ui_request_parameter;
 
 	features[fi++] = &_lv2ui_request_feature;
 #endif
@@ -380,7 +387,11 @@ LV2PluginUI::lv2ui_instantiate(const std::string& title)
 	}
 
 	features[fi] = NULL;
+#ifdef HAVE_LV2_1_17_1
+	assert (fi == features_count + (is_external_ui ? 3 : 1));
+#else
 	assert (fi == features_count + (is_external_ui ? 2 : 1));
+#endif
 
 	if (!ui_host) {
 		ui_host = suil_host_new(LV2PluginUI::write_from_ui,

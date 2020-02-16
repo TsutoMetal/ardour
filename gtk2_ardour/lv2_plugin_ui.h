@@ -44,12 +44,6 @@
 #include "lv2_external_ui.h"
 
 #include "lv2/lv2plug.in/ns/extensions/ui/ui.h"
-#if 0
-typedef struct _LV2UI_Request_Parameter {
-	LV2UI_Feature_Handle handle;
-	uint32_t (*request)(LV2UI_Feature_Handle handle, LV2_URID key);
-}LV2UI_Request_Parameter;
-#endif
 
 namespace ARDOUR {
 	class PluginInsert;
@@ -92,8 +86,8 @@ private:
 	struct lv2_external_ui_host          _external_ui_host;
 	LV2_Feature                          _external_ui_feature;
 	LV2_Feature                          _external_kxui_feature;
-#if 0
-	LV2UI_Request_Parameter              _lv2ui_request_paramater;
+#ifdef HAVE_LV2_1_17_1
+	LV2UI_Request_Parameter              _lv2ui_request_parameter;
 	LV2_Feature                          _lv2ui_request_feature;
 #endif
 	struct lv2_external_ui*              _external_ui_ptr;
@@ -122,7 +116,11 @@ private:
 	                  uint32_t port_index,
 	                  bool     grabbed);
 
-	static uint32_t request_parameter (void* handle, LV2_URID key);
+#ifdef HAVE_LV2_1_17_1
+	static LV2UI_Request_Parameter_Status request_parameter(void*    handle,
+	                                                        LV2_URID key);
+#endif
+
 	void set_path_property (int,
 	                        const ARDOUR::ParameterDescriptor&,
 	                        Gtk::FileChooserDialog*);
